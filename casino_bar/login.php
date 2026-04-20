@@ -1,8 +1,11 @@
 <?php
-// login.php - ОБНОВЛЕННАЯ СТРАНИЦА ВХОДА И РЕГИСТРАЦИИ
+// login.php - БЕЗ VIP
 require_once 'config.php';
 
-// Если уже авторизован, перенаправляем на главную
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Если уже авторизован
 if (!isGuest()) {
     header('Location: index.php');
     exit;
@@ -12,39 +15,97 @@ $error = '';
 $success = '';
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'login';
 
-// Обработка формы входа
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
-    
-    // Демо-авторизация
-    if ($username === 'admin' && $password === 'admin123') {
-        $_SESSION['user_id'] = 1;
-        $_SESSION['role'] = 'admin';
-        $_SESSION['first_name'] = 'Администратор';
-        $_SESSION['last_name'] = 'Казино';
-        header('Location: index.php');
-        exit;
-    } elseif ($username === 'employee' && $password === 'emp123') {
-        $_SESSION['user_id'] = 2;
-        $_SESSION['role'] = 'employee';
-        $_SESSION['first_name'] = 'Сотрудник';
-        $_SESSION['last_name'] = 'Казино';
-        header('Location: index.php');
-        exit;
-    } elseif ($username === 'vip' && $password === 'vip123') {
-        $_SESSION['user_id'] = 3;
-        $_SESSION['role'] = 'vip';
-        $_SESSION['first_name'] = 'VIP';
-        $_SESSION['last_name'] = 'Гость';
-        header('Location: index.php');
-        exit;
-    } else {
-        $error = 'Неверное имя пользователя или пароль';
+// Функции капчи
+if (!function_exists('generateCaptcha')) {
+    function generateCaptcha() {
+        $num1 = rand(1, 20);
+        $num2 = rand(1, 20);
+        $_SESSION['captcha_result'] = $num1 + $num2;
+        $_SESSION['captcha_text'] = "$num1 + $num2 = ?";
+        return $_SESSION['captcha_text'];
     }
 }
 
-// Обработка формы регистрации
+if (!function_exists('verifyCaptcha')) {
+    function verifyCaptcha($answer) {
+        return isset($_SESSION['captcha_result']) && (int)$answer === (int)$_SESSION['captcha_result'];
+    }
+}
+
+// Функция проверки пароля
+function verifyPassword($input_password, $stored_hash, $username) {
+    if (password_verify($input_password, $stored_hash)) return true;
+    if (md5($input_password) === $stored_hash) return true;
+    if ($input_password === $stored_hash) return true;
+    
+    // Только admin и employee
+    $test_passwords = ['admin123', 'emp123'];
+    if (in_array($input_password, $test_passwords) && in_array($username, ['admin', 'employee'])) {
+        return true;
+    }
+    return false;
+}
+
+// Обработка входа
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $captcha = (int)($_POST['captcha'] ?? 0);
+    
+    if (!verifyCaptcha($captcha)) {
+        $error = 'Неверный ответ капчи!';
+        generateCaptcha();
+    } else {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? AND is_active = 1");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch();
+            
+            if ($user) {
+                if (verifyPassword($password, $user['password'], $username)) {
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['first_name'] = $user['first_name'] ?? $username;
+                    $_SESSION['last_name'] = $user['last_name'] ?? '';
+                    
+                    $updateStmt = $pdo->prepare("UPDATE users SET last_login = NOW(), login_count = login_count + 1 WHERE id = ?");
+                    $updateStmt->execute([$user['id']]);
+                    
+                    header('Location: index.php');
+                    exit;
+                } else {
+                    $error = 'Неверный пароль!';
+                }
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM employees WHERE login = ? AND is_active = 1");
+                $stmt->execute([$username]);
+                $employee = $stmt->fetch();
+                
+                if ($employee) {
+                    if (verifyPassword($password, $employee['password_hash'] ?? '', $username)) {
+                        $_SESSION['user_id'] = $employee['id'];
+                        $_SESSION['username'] = $employee['login'];
+                        $_SESSION['role'] = 'employee';
+                        $_SESSION['first_name'] = $employee['first_name'];
+                        $_SESSION['last_name'] = $employee['last_name'];
+                        
+                        header('Location: index.php');
+                        exit;
+                    } else {
+                        $error = 'Неверный пароль!';
+                    }
+                } else {
+                    $error = 'Пользователь не найден!';
+                }
+            }
+        } catch (PDOException $e) {
+            $error = 'Ошибка: ' . $e->getMessage();
+        }
+    }
+}
+
+// Обработка регистрации
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
     $first_name = trim($_POST['first_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
@@ -53,53 +114,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
+    $birth_date = $_POST['birth_date'] ?? '';
+    $document_number = trim($_POST['document_number'] ?? '');
+    $captcha = (int)($_POST['captcha'] ?? 0);
     
-    // Валидация
-    $errors = [];
-    
-    if (empty($first_name)) {
-        $errors[] = 'Имя обязательно для заполнения';
-    }
-    
-    if (empty($last_name)) {
-        $errors[] = 'Фамилия обязательна для заполнения';
-    }
-    
-    if (empty($email)) {
-        $errors[] = 'Email обязателен для заполнения';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Введите корректный email';
-    }
-    
-    if (empty($phone)) {
-        $errors[] = 'Телефон обязателен для заполнения';
-    }
-    
-    if (empty($username)) {
-        $errors[] = 'Имя пользователя обязательно';
-    } elseif (strlen($username) < 4) {
-        $errors[] = 'Имя пользователя должно быть не менее 4 символов';
-    }
-    
-    if (empty($password)) {
-        $errors[] = 'Пароль обязателен';
-    } elseif (strlen($password) < 6) {
-        $errors[] = 'Пароль должен быть не менее 6 символов';
-    }
-    
-    if ($password !== $confirm_password) {
-        $errors[] = 'Пароли не совпадают';
-    }
-    
-    if (empty($errors)) {
-        // В демо-режиме просто показываем успех
-        $success = 'Регистрация прошла успешно! Теперь вы можете войти.';
-        // В реальной системе здесь было бы сохранение в БД
-        $activeTab = 'login';
+    if (!verifyCaptcha($captcha)) {
+        $error = 'Неверный ответ капчи!';
+        generateCaptcha();
     } else {
-        $error = implode('<br>', $errors);
+        $errors = [];
+        
+        if (empty($first_name)) $errors[] = 'Имя обязательно';
+        if (empty($last_name)) $errors[] = 'Фамилия обязательна';
+        if (empty($email)) $errors[] = 'Email обязателен';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Неверный email';
+        if (empty($phone)) $errors[] = 'Телефон обязателен';
+        if (empty($username) || strlen($username) < 4) $errors[] = 'Имя пользователя (мин 4 символа)';
+        if (strlen($username) > 20) $errors[] = 'Имя пользователя (макс 20 символов)';
+        
+        if (empty($password)) {
+            $errors[] = 'Пароль обязателен';
+        } elseif (strlen($password) < 4) {
+            $errors[] = 'Пароль должен быть не менее 4 символов';
+        } elseif (strlen($password) > 10) {
+            $errors[] = 'Пароль должен быть не более 10 символов';
+        }
+        
+        if ($password !== $confirm_password) $errors[] = 'Пароли не совпадают';
+        if (empty($birth_date)) $errors[] = 'Дата рождения обязательна';
+        if (empty($document_number)) $errors[] = 'Номер документа обязателен';
+        
+        if (empty($errors)) {
+            try {
+                $check = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+                $check->execute([$username, $email]);
+                
+                if ($check->rowCount() > 0) {
+                    $error = 'Пользователь с таким именем или email уже существует!';
+                } else {
+                    $pdo->beginTransaction();
+                    
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt = $pdo->prepare("
+                        INSERT INTO users (username, password, email, first_name, last_name, phone, role, created_at, is_active) 
+                        VALUES (?, ?, ?, ?, ?, ?, 'guest', NOW(), 1)
+                    ");
+                    $stmt->execute([$username, $hashedPassword, $email, $first_name, $last_name, $phone]);
+                    $user_id = $pdo->lastInsertId();
+                    
+                    $stmt2 = $pdo->prepare("
+                        INSERT INTO guests (first_name, last_name, phone, birth_date, document_number, visits_count, total_spent, registration_date) 
+                        VALUES (?, ?, ?, ?, ?, 0, 0, NOW())
+                    ");
+                    $stmt2->execute([$first_name, $last_name, $phone, $birth_date, $document_number]);
+                    
+                    $pdo->commit();
+                    
+                    $success = 'Регистрация успешна! Теперь вы можете войти.';
+                    $activeTab = 'login';
+                    generateCaptcha();
+                }
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $error = 'Ошибка регистрации: ' . $e->getMessage();
+            }
+        } else {
+            $error = implode('<br>', $errors);
+        }
     }
 }
+
+$captchaQuestion = generateCaptcha();
 
 // Демо-вход
 if (isset($_GET['demo'])) {
@@ -107,6 +192,7 @@ if (isset($_GET['demo'])) {
     $_SESSION['role'] = 'guest';
     $_SESSION['first_name'] = 'Демо';
     $_SESSION['last_name'] = 'Гость';
+    $_SESSION['username'] = 'demo';
     header('Location: index.php');
     exit;
 }
@@ -119,299 +205,186 @@ if (isset($_GET['demo'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вход / Регистрация - Элитное Казино</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a, #1a1a1a);
-            color: #F5F5F5;
-            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            min-height: 100vh;
             padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a1a);
         }
-        
         .auth-container {
+            max-width: 550px;
             width: 100%;
-            max-width: 500px;
         }
-        
-        .auth-card {
-            background: rgba(26, 26, 26, 0.95);
-            border-radius: 20px;
-            padding: 40px;
-            border: 2px solid #D4AF37;
-            box-shadow: 0 20px 50px rgba(199, 21, 133, 0.3);
-            backdrop-filter: blur(10px);
-        }
-        
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .logo i {
-            color: #D4AF37;
-            font-size: 3.5rem;
-            margin-bottom: 15px;
-        }
-        
-        .logo h1 {
-            color: #D4AF37;
-            font-family: 'Cinzel', serif;
-            font-size: 2rem;
-            margin-bottom: 5px;
-        }
-        
-        .logo p {
-            color: #888;
-            font-size: 1rem;
-        }
-        
-        .tabs {
-            display: flex;
-            margin-bottom: 30px;
-            border-bottom: 2px solid rgba(212, 175, 55, 0.3);
-        }
-        
-        .tab {
-            flex: 1;
-            text-align: center;
+        .captcha-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
             padding: 15px;
-            cursor: pointer;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .captcha-question {
+            font-size: 1.5rem;
             font-weight: bold;
-            color: #888;
-            transition: all 0.3s;
-            position: relative;
+            color: var(--accent);
+            margin-bottom: 10px;
         }
-        
-        .tab.active {
-            color: #D4AF37;
-        }
-        
-        .tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #C71585, #D4AF37);
-        }
-        
-        .tab i {
-            margin-right: 8px;
-        }
-        
-        .tab:hover {
-            color: #C71585;
-        }
-        
-        .form-container {
-            transition: all 0.3s;
-        }
-        
-        .form-group {
-            margin-bottom: 25px;
-        }
-        
-        .form-row {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .form-row .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-        
-        label {
-            display: block;
-            color: #D4AF37;
-            margin-bottom: 8px;
-            font-weight: 500;
-            font-size: 0.95rem;
-        }
-        
         .input-with-icon {
             position: relative;
         }
-        
         .input-with-icon i {
             position: absolute;
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #C71585;
-            font-size: 1.1rem;
+            color: var(--secondary);
         }
-        
-        input, select {
-            width: 100%;
-            padding: 15px 15px 15px 45px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(212, 175, 55, 0.3);
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            transition: all 0.3s;
+        .input-with-icon input {
+            padding-left: 45px;
         }
-        
-        input:focus, select:focus {
-            outline: none;
-            border-color: #C71585;
-            background: rgba(255, 255, 255, 0.15);
-        }
-        
-        .btn-auth {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(45deg, #C71585, #8B0000);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .btn-auth:hover {
-            background: linear-gradient(45deg, #8B0000, #C71585);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(199, 21, 133, 0.3);
-        }
-        
-        .btn-demo {
-            display: block;
-            width: 100%;
-            padding: 16px;
-            background: rgba(212, 175, 55, 0.15);
-            color: #D4AF37;
-            border: 1px solid #D4AF37;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .btn-demo:hover {
-            background: rgba(212, 175, 55, 0.3);
-            transform: translateY(-3px);
-        }
-        
-        .error {
-            background: rgba(139, 0, 0, 0.2);
-            border: 1px solid #8B0000;
-            color: #FF7F7F;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-        }
-        
-        .success {
-            background: rgba(0, 128, 0, 0.2);
-            border: 1px solid #00ff00;
-            color: #90EE90;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-        }
-        
-        .info-box {
-            background: rgba(23, 162, 184, 0.1);
-            border: 1px solid #17a2b8;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        
-        .info-box h4 {
-            color: #17a2b8;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .info-box p {
-            color: #888;
-            font-size: 0.9rem;
-            margin: 5px 0;
-        }
-        
-        .info-box .credentials {
+        .credentials {
             background: rgba(0, 0, 0, 0.3);
             padding: 10px;
             border-radius: 5px;
             margin-top: 10px;
             font-family: monospace;
+            font-size: 0.85rem;
         }
-        
         .credentials span {
-            color: #D4AF37;
+            color: var(--accent);
             font-weight: bold;
         }
-        
-        .back-link {
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+        }
+        .tab {
+            flex: 1;
             text-align: center;
-            margin-top: 20px;
-        }
-        
-        .back-link a {
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
             color: #888;
-            text-decoration: none;
-            transition: color 0.3s;
+            transition: all 0.3s;
         }
-        
-        .back-link a:hover {
-            color: #D4AF37;
+        .tab.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            margin-bottom: -2px;
         }
-        
-        @media (max-width: 768px) {
-            .auth-card {
-                padding: 25px;
-            }
-            
-            .form-row {
-                flex-direction: column;
-                gap: 25px;
-            }
-            
-            .logo h1 {
-                font-size: 1.8rem;
-            }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo i {
+            font-size: 3rem;
+            color: var(--accent);
+        }
+        .logo h1 {
+            margin-top: 10px;
+            font-size: 1.8rem;
+        }
+        .info-box {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(23, 162, 184, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(23, 162, 184, 0.3);
+        }
+        .info-box h4 {
+            color: #17a2b8;
+            margin-bottom: 10px;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-error {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #ff7f7f;
+        }
+        .alert-success {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid #28a745;
+            color: #98fb98;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--accent);
+        }
+        .form-group label .required {
+            color: #dc3545;
+        }
+        .form-group small {
+            display: block;
+            color: var(--secondary-light);
+            font-size: 0.75rem;
+            margin-top: 5px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, var(--secondary), var(--primary));
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+        .password-requirements {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 3px solid #ffc107;
+            padding: 8px 12px;
+            margin-bottom: 15px;
+            font-size: 0.8rem;
+            border-radius: 5px;
+        }
+        .password-requirements i {
+            color: #ffc107;
         }
     </style>
 </head>
 <body>
     <div class="auth-container">
-        <div class="auth-card">
+        <div class="card" style="padding: 40px;">
             <div class="logo">
                 <i class="fas fa-gem"></i>
                 <h1>Элитное Казино</h1>
-                <p>Система управления премиальным заведением</p>
+                <p style="color: var(--secondary-light);">Система управления</p>
             </div>
             
-            <!-- Вкладки -->
             <div class="tabs">
                 <div class="tab <?php echo $activeTab === 'login' ? 'active' : ''; ?>" onclick="switchTab('login')">
                     <i class="fas fa-sign-in-alt"></i> Вход
@@ -421,184 +394,184 @@ if (isset($_GET['demo'])) {
                 </div>
             </div>
             
-            <!-- Сообщения -->
             <?php if ($error): ?>
-            <div class="error">
-                <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
-            </div>
+                <div class="alert alert-error"><?php echo $error; ?></div>
             <?php endif; ?>
-            
             <?php if ($success): ?>
-            <div class="success">
-                <i class="fas fa-check-circle"></i> <?php echo $success; ?>
-            </div>
+                <div class="alert alert-success"><?php echo $success; ?></div>
             <?php endif; ?>
             
             <!-- Форма входа -->
-            <div id="loginForm" class="form-container" style="display: <?php echo $activeTab === 'login' ? 'block' : 'none'; ?>;">
-                <form method="POST" action="login.php?tab=login">
+            <div id="loginForm" style="display: <?php echo $activeTab === 'login' ? 'block' : 'none'; ?>">
+                <form method="POST">
+                    <input type="hidden" name="login" value="1">
                     <div class="form-group">
-                        <label for="username"><i class="fas fa-user"></i> Имя пользователя</label>
+                        <label>Имя пользователя</label>
                         <div class="input-with-icon">
                             <i class="fas fa-user"></i>
-                            <input type="text" id="username" name="username" 
-                                   placeholder="Введите имя пользователя" required>
+                            <input type="text" name="username" class="form-control" required placeholder="admin / employee">
                         </div>
                     </div>
-                    
                     <div class="form-group">
-                        <label for="password"><i class="fas fa-lock"></i> Пароль</label>
+                        <label>Пароль</label>
                         <div class="input-with-icon">
                             <i class="fas fa-lock"></i>
-                            <input type="password" id="password" name="password" 
-                                   placeholder="Введите пароль" required>
+                            <input type="password" name="password" class="form-control" required>
                         </div>
                     </div>
-                    
-                    <button type="submit" name="login" class="btn-auth">
-                        <i class="fas fa-sign-in-alt"></i> Войти в систему
-                    </button>
+                    <div class="captcha-container">
+                        <div class="captcha-question"><?php echo $captchaQuestion; ?></div>
+                        <input type="number" name="captcha" class="form-control" placeholder="Введите ответ" required style="padding-left: 15px;">
+                    </div>
+                    <button type="submit" class="btn btn-success">Войти</button>
                 </form>
-                
-                <a href="?demo=1" class="btn-demo">
-                    <i class="fas fa-user-secret"></i> Войти как демо-гость
-                </a>
+                <a href="?demo=1" class="btn btn-primary" style="display:block; text-align:center; margin-top:15px; text-decoration:none;">Демо-гость</a>
             </div>
             
             <!-- Форма регистрации -->
-            <div id="registerForm" class="form-container" style="display: <?php echo $activeTab === 'register' ? 'block' : 'none'; ?>;">
-                <form method="POST" action="login.php?tab=register">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="first_name">Имя</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-user"></i>
-                                <input type="text" id="first_name" name="first_name" 
-                                       placeholder="Иван" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="last_name">Фамилия</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-user"></i>
-                                <input type="text" id="last_name" name="last_name" 
-                                       placeholder="Петров" required>
-                            </div>
-                        </div>
+            <div id="registerForm" style="display: <?php echo $activeTab === 'register' ? 'block' : 'none'; ?>">
+                <form method="POST" onsubmit="return validatePassword()">
+                    <input type="hidden" name="register" value="1">
+                    
+                    <div class="form-group">
+                        <label>Имя <span class="required">*</span></label>
+                        <input type="text" name="first_name" class="form-control" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="email">Email</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-envelope"></i>
-                            <input type="email" id="email" name="email" 
-                                   placeholder="ivan@example.com" required>
-                        </div>
+                        <label>Фамилия <span class="required">*</span></label>
+                        <input type="text" name="last_name" class="form-control" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="phone">Телефон</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-phone"></i>
-                            <input type="tel" id="phone" name="phone" 
-                                   placeholder="+7 (999) 123-45-67" required>
-                        </div>
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" name="email" class="form-control" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="reg_username">Имя пользователя</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-user-tag"></i>
-                            <input type="text" id="reg_username" name="username" 
-                                   placeholder="ivan_petrov" required>
-                        </div>
+                        <label>Телефон <span class="required">*</span></label>
+                        <input type="text" name="phone" class="form-control" required placeholder="+7 (999) 123-45-67">
                     </div>
                     
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="reg_password">Пароль</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-lock"></i>
-                                <input type="password" id="reg_password" name="password" 
-                                       placeholder="Минимум 6 символов" required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="confirm_password">Подтверждение</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-lock"></i>
-                                <input type="password" id="confirm_password" name="confirm_password" 
-                                       placeholder="Повторите пароль" required>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                        <label>Дата рождения <span class="required">*</span></label>
+                        <input type="date" name="birth_date" class="form-control" required>
                     </div>
                     
-                    <button type="submit" name="register" class="btn-auth">
-                        <i class="fas fa-user-plus"></i> Зарегистрироваться
-                    </button>
+                    <div class="form-group">
+                        <label>Номер документа <span class="required">*</span></label>
+                        <input type="text" name="document_number" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Имя пользователя <span class="required">*</span></label>
+                        <input type="text" name="username" class="form-control" required minlength="4" maxlength="20">
+                        <small>От 4 до 20 символов</small>
+                    </div>
+                    
+                    <div class="password-requirements">
+                        <i class="fas fa-info-circle"></i> <strong>Требования к паролю:</strong><br>
+                        • Минимум 4 символа<br>
+                        • Максимум 10 символов
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Пароль <span class="required">*</span></label>
+                        <input type="password" name="password" id="password" class="form-control" required minlength="4" maxlength="10">
+                        <small id="password_length">Длина: 0/10 символов</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Подтверждение пароля <span class="required">*</span></label>
+                        <input type="password" name="confirm_password" id="confirm_password" class="form-control" required>
+                        <small id="password_match" style="color: #ff7f7f;"></small>
+                    </div>
+                    
+                    <div class="captcha-container">
+                        <div class="captcha-question"><?php echo $captchaQuestion; ?></div>
+                        <input type="number" name="captcha" class="form-control" placeholder="Введите ответ" required style="padding-left: 15px;">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
                 </form>
             </div>
             
-            <!-- Информация для входа -->
             <div class="info-box">
                 <h4><i class="fas fa-info-circle"></i> Тестовые учетные данные</h4>
-                <p>Для демонстрации используйте:</p>
                 <div class="credentials">
-                    <p><span>Админ:</span> admin / admin123</p>
-                    <p><span>Сотрудник:</span> employee / emp123</p>
-                    <p><span>VIP гость:</span> vip / vip123</p>
+                    <p><span>👑 Администратор:</span> admin / admin123</p>
+                    <p><span>👤 Сотрудник:</span> employee / emp123</p>
+                    <p><span>📝 Или зарегистрируйтесь сами!</span></p>
+                    <p><span>🔒 Пароль: от 4 до 10 символов</span></p>
                 </div>
-            </div>
-            
-            <div class="back-link">
-                <a href="index.php"><i class="fas fa-arrow-left"></i> Вернуться на главную</a>
             </div>
         </div>
     </div>
     
     <script>
         function switchTab(tab) {
-            // Обновляем URL без перезагрузки
-            const url = new URL(window.location.href);
-            url.searchParams.set('tab', tab);
-            window.history.pushState({}, '', url);
-            
-            // Переключаем видимость форм
             document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
             document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
             
-            // Обновляем активные вкладки
-            document.querySelectorAll('.tab').forEach((tabElement, index) => {
-                if ((index === 0 && tab === 'login') || (index === 1 && tab === 'register')) {
-                    tabElement.classList.add('active');
+            document.querySelectorAll('.tab').forEach((el, i) => {
+                if ((i === 0 && tab === 'login') || (i === 1 && tab === 'register')) {
+                    el.classList.add('active');
                 } else {
-                    tabElement.classList.remove('active');
+                    el.classList.remove('active');
                 }
             });
         }
         
-        // Валидация формы регистрации
-        document.addEventListener('DOMContentLoaded', function() {
-            const registerForm = document.querySelector('#registerForm form');
-            if (registerForm) {
-                registerForm.addEventListener('submit', function(e) {
-                    const password = document.getElementById('reg_password').value;
-                    const confirm = document.getElementById('confirm_password').value;
-                    
-                    if (password !== confirm) {
-                        e.preventDefault();
-                        alert('Пароли не совпадают!');
+        // Проверка длины пароля в реальном времени
+        const passwordInput = document.getElementById('password');
+        const confirmInput = document.getElementById('confirm_password');
+        const lengthDisplay = document.getElementById('password_length');
+        const matchDisplay = document.getElementById('password_match');
+        
+        if (passwordInput) {
+            passwordInput.addEventListener('input', function() {
+                const len = this.value.length;
+                lengthDisplay.innerHTML = `Длина: ${len}/10 символов`;
+                if (len > 10) {
+                    this.value = this.value.slice(0, 10);
+                    lengthDisplay.innerHTML = `Длина: 10/10 символов (максимум)`;
+                }
+                checkPasswordMatch();
+            });
+        }
+        
+        if (confirmInput) {
+            confirmInput.addEventListener('input', checkPasswordMatch);
+        }
+        
+        function checkPasswordMatch() {
+            if (passwordInput && confirmInput) {
+                if (confirmInput.value.length > 0) {
+                    if (passwordInput.value === confirmInput.value) {
+                        matchDisplay.innerHTML = '✓ Пароли совпадают';
+                        matchDisplay.style.color = '#28a745';
+                    } else {
+                        matchDisplay.innerHTML = '✗ Пароли не совпадают';
+                        matchDisplay.style.color = '#dc3545';
                     }
-                    
-                    if (password.length < 6) {
-                        e.preventDefault();
-                        alert('Пароль должен быть не менее 6 символов!');
-                    }
-                });
+                } else {
+                    matchDisplay.innerHTML = '';
+                }
             }
-        });
+        }
+        
+        function validatePassword() {
+            const password = document.getElementById('password').value;
+            if (password.length < 4) {
+                alert('Пароль должен быть не менее 4 символов!');
+                return false;
+            }
+            if (password.length > 10) {
+                alert('Пароль должен быть не более 10 символов!');
+                return false;
+            }
+            return true;
+        }
     </script>
 </body>
 </html>

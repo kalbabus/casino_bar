@@ -1,5 +1,5 @@
 <?php
-// guests.php - ИСПРАВЛЕННАЯ ВЕРСИЯ, БЕЗ EMAIL
+// guests.php - ИСПРАВЛЕННАЯ ВЕРСИЯ (БЕЗ last_visit)
 require_once 'config.php';
 require_once 'header.php';
 
@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_guest'])) {
     $first_name = trim($_POST['first_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $birth_date = $_POST['birth_date'] ?? null;
+    $document_number = trim($_POST['document_number'] ?? '');
     $visits_count = (int)($_POST['visits_count'] ?? 0);
     $total_spent = (float)($_POST['total_spent'] ?? 0);
     
@@ -21,14 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_guest'])) {
     } else {
         try {
             if (empty($id)) {
-                // Добавление нового гостя (БЕЗ EMAIL)
-                $stmt = $pdo->prepare("INSERT INTO guests (first_name, last_name, phone, visits_count, total_spent, last_visit, created_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-                $stmt->execute([$first_name, $last_name, $phone, $visits_count, $total_spent]);
+                // Добавление нового гостя
+                $stmt = $pdo->prepare("
+                    INSERT INTO guests (first_name, last_name, phone, birth_date, document_number, visits_count, total_spent, registration_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                ");
+                $stmt->execute([$first_name, $last_name, $phone, $birth_date, $document_number, $visits_count, $total_spent]);
                 $message = 'Гость успешно добавлен!';
             } else {
-                // Обновление существующего (БЕЗ EMAIL)
-                $stmt = $pdo->prepare("UPDATE guests SET first_name=?, last_name=?, phone=?, visits_count=?, total_spent=? WHERE id=?");
-                $stmt->execute([$first_name, $last_name, $phone, $visits_count, $total_spent, $id]);
+                // Обновление существующего
+                $stmt = $pdo->prepare("
+                    UPDATE guests 
+                    SET first_name=?, last_name=?, phone=?, birth_date=?, document_number=?, visits_count=?, total_spent=? 
+                    WHERE id=?
+                ");
+                $stmt->execute([$first_name, $last_name, $phone, $birth_date, $document_number, $visits_count, $total_spent, $id]);
                 $message = 'Данные гостя обновлены!';
             }
         } catch (PDOException $e) {
@@ -37,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_guest'])) {
     }
 }
 
-// Обработка удаления (только для авторизованных)
+// Обработка удаления
 if (isset($_GET['delete']) && !isGuest()) {
     $id = (int)$_GET['delete'];
     try {
@@ -112,9 +121,9 @@ try {
                             <th>Имя</th>
                             <th>Фамилия</th>
                             <th>Телефон</th>
+                            <th>Дата рождения</th>
                             <th>Посещений</th>
                             <th>Потрачено</th>
-                            <th>Последний визит</th>
                             <?php if (!isGuest()): ?>
                             <th>Действия</th>
                             <?php endif; ?>
@@ -127,9 +136,9 @@ try {
                             <td><strong><?php echo escape($row['first_name']); ?></strong></td>
                             <td><?php echo escape($row['last_name']); ?></td>
                             <td><?php echo escape($row['phone']); ?></td>
+                            <td><?php echo $row['birth_date'] ? date('d.m.Y', strtotime($row['birth_date'])) : '—'; ?></td>
                             <td class="text-center"><?php echo escape($row['visits_count']); ?></td>
                             <td class="amount-cell"><?php echo number_format($row['total_spent'], 0, '.', ' '); ?> ₽</td>
-                            <td><?php echo $row['last_visit'] ? date('d.m.Y', strtotime($row['last_visit'])) : '—'; ?></td>
                             <?php if (!isGuest()): ?>
                             <td>
                                 <div class="action-buttons">
@@ -211,6 +220,26 @@ try {
                                class="form-control" 
                                value="<?php echo $is_edit ? escape($guest['phone']) : ''; ?>" 
                                required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="birth_date">Дата рождения:</label>
+                        <input type="date" 
+                               id="birth_date" 
+                               name="birth_date" 
+                               class="form-control" 
+                               value="<?php echo $is_edit && $guest['birth_date'] ? $guest['birth_date'] : ''; ?>">
+                    </div>
+                    
+                    <div class="form-group col-md-6">
+                        <label for="document_number">Номер документа:</label>
+                        <input type="text" 
+                               id="document_number" 
+                               name="document_number" 
+                               class="form-control" 
+                               value="<?php echo $is_edit ? escape($guest['document_number']) : ''; ?>">
                     </div>
                 </div>
                 
