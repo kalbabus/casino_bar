@@ -1,0 +1,814 @@
+/* Стили для приветствия */
+.welcome-message {
+    background: linear-gradient(135deg, rgba(44, 11, 43, 0.9), rgba(26, 26, 26, 0.95));
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    border: 2px solid var(--secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    box-shadow: 0 15px 35px rgba(199, 21, 133, 0.2);
+}
+
+.welcome-content h1 {
+    color: var(--secondary);
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    font-family: 'Cinzel', serif;
+}
+
+.welcome-subtitle {
+    color: var(--secondary-light);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.separator {
+    color: var(--accent);
+    opacity: 0.7;
+}
+
+.welcome-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-badge {
+    background: rgba(212, 175, 55, 0.2);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stat-badge i {
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+
+.stat-badge span {
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Уведомление для гостей */
+.guest-notice {
+    background: linear-gradient(135deg, rgba(65, 105, 225, 0.1), rgba(100, 149, 237, 0.15));
+    border: 2px solid #4169E1;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.notice-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.notice-header i {
+    color: #4169E1;
+    font-size: 2rem;
+}
+
+.notice-header h3 {
+    color: #4169E1;
+    margin: 0;
+}
+
+.guest-notice p {
+    color: var(--secondary-light);
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.notice-actions {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.btn-login {
+    background: linear-gradient(45deg, var(--secondary), #a8106c);
+    color: white;
+    padding: 12px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-login:hover {
+    background: linear-gradient(45deg, #a8106c, var(--secondary));
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(199, 21, 133, 0.3);
+}
+
+.btn-features {
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--accent);
+    padding: 12px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    border: 1px solid var(--accent);
+    transition: all 0.3s;
+}
+
+.btn-features:hover {
+    background: rgba(212, 175, 55, 0.4);
+    transform: translateY(-3px);
+}
+
+.guest-features {
+    animation: slideDown 0.5s;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.feature-card {
+    background: rgba(26, 26, 26, 0.8);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(65, 105, 225, 0.3);
+    transition: all 0.3s;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    border-color: #4169E1;
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(45deg, #4169E1, #6495ED);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 1.5rem;
+}
+
+.feature-card h4 {
+    color: #4169E1;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.feature-card p {
+    color: var(--secondary-light);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.features-restricted {
+    background: rgba(139, 0, 0, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.features-restricted h5 {
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.features-restricted ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.features-restricted li {
+    color: var(--secondary-light);
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    font-size: 0.95rem;
+}
+
+/* Стили для быстрого доступа */
+.access-note {
+    color: var(--secondary-light);
+    font-size: 0.9rem;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.card-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+.guest-restricted {
+    opacity: 0.7;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.guest-restricted:hover::after {
+    content: "Требуется авторизация";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: var(--secondary);
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.access-restricted {
+    background: rgba(139, 0, 0, 0.2);
+    border: 1px solid var(--primary);
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+/* Демо-заметка для рулетки */
+.demo-notice {
+    display: inline-block;
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--accent);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+
+.balance-note {
+    font-size: 0.9rem;
+    color: var(--secondary-light);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Информация о системе */
+.system-info {
+    background: linear-gradient(135deg, rgba(26, 26, 26, 0.9), rgba(44, 11, 43, 0.9));
+    border-radius: 15px;
+    padding: 25px;
+    margin-top: 40px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.system-info h3 {
+    color: var(--secondary);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.info-card {
+    background: rgba(26, 26, 26, 0.6);
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    transition: all 0.3s;
+}
+
+.info-card:hover {
+    border-color: var(--secondary);
+    transform: translateY(-3px);
+}
+
+.info-card h4 {
+    color: var(--secondary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+}
+
+.info-card p {
+    color: var(--secondary-light);
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .welcome-message {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+    
+    .welcome-subtitle {
+        justify-content: center;
+    }
+    
+    .welcome-stats {
+        justify-content: center;
+    }
+    
+    .notice-actions {
+        flex-direction: column;
+    }
+    
+    .btn-login, .btn-features {
+        text-align: center;
+        justify-content: center;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-badge {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .welcome-content h1 {
+        font-size: 2rem;
+    }
+    
+    .welcome-subtitle {
+        font-size: 1rem;
+    }
+    
+    .stat-badge {
+        padding: 8px 15px;
+    }
+}
+
+/* Стили для рулетки (дополнительные) */
+
+
+/* Стили для dashboard */
+.dashboard {
+    margin-top: 30px;
+}
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, rgba(44, 11, 43, 0.7), rgba(26, 26, 26, 0.8));
+    border-radius: 15px;
+    padding: 25px;
+    text-align: center;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    transition: all 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
+}
+
+.stat-card h3 {
+    color: var(--accent);
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+.stat-card p {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.activity-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.recent-activity, .active-shifts, .vip-guests {
+    background: rgba(26, 26, 26, 0.8);
+    border-radius: 15px;
+    padding: 25px;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.recent-activity h3, 
+.active-shifts h3, 
+.vip-guests h3 {
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.order-type {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.order-type-bar {
+    background: rgba(0, 128, 0, 0.2);
+    color: #90EE90;
+}
+
+.order-type-game {
+    background: rgba(199, 21, 133, 0.2);
+    color: var(--secondary);
+}
+
+.order-link {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.order-link:hover {
+    color: var(--secondary);
+}
+
+.view-all {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.btn-view-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--accent);
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    border: 1px solid var(--accent);
+    transition: all 0.3s;
+}
+
+.btn-view-all:hover {
+    background: rgba(212, 175, 55, 0.4);
+    transform: translateY(-3px);
+}
+
+.shift-card {
+    background: rgba(26, 26, 26, 0.6);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+}
+
+.shift-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.shift-status {
+    font-size: 0.8rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: bold;
+}
+
+.status-active {
+    background: rgba(0, 128, 0, 0.2);
+    color: #90EE90;
+}
+
+.shift-details p {
+    color: var(--secondary-light);
+    font-size: 0.9rem;
+    margin: 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.shift-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-shift-action {
+    padding: 5px 15px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-close {
+    background: rgba(139, 0, 0, 0.2);
+    color: #FF7F7F;
+    border: 1px solid #8B0000;
+}
+
+.btn-close:hover {
+    background: rgba(139, 0, 0, 0.4);
+}
+
+.btn-edit {
+    background: rgba(0, 123, 255, 0.2);
+    color: #7CB9E8;
+    border: 1px solid #007BFF;
+}
+
+.btn-edit:hover {
+    background: rgba(0, 123, 255, 0.4);
+}
+
+.no-shifts {
+    text-align: center;
+    padding: 30px;
+}
+
+.btn-start-shift {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(45deg, var(--secondary), #a8106c);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    margin-top: 15px;
+}
+
+.vip-amount {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.vip-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.vip-diamond {
+    background: linear-gradient(45deg, #B9F2FF, #E0FFFF);
+    color: #1E90FF;
+}
+
+.vip-gold {
+    background: linear-gradient(45deg, #FFD700, #F0E68C);
+    color: #8B7500;
+}
+
+.vip-silver {
+    background: linear-gradient(45deg, #C0C0C0, #DCDCDC);
+    color: #696969;
+}
+
+/* Стили для быстрого доступа (дополнение) */
+.quick-access-card {
+    background: linear-gradient(135deg, rgba(44, 11, 43, 0.5), rgba(26, 26, 26, 0.7));
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-decoration: none;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    transition: all 0.3s;
+}
+
+.quick-access-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
+}
+
+.card-icon {
+    width: 50px;
+    height: 50px;
+    min-width: 50px; /* Добавлено для предотвращения сжатия */
+    min-height: 50px; /* Добавлено для предотвращения сжатия */
+    background: linear-gradient(45deg, var(--secondary), var(--primary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    flex-shrink: 0; /* Запрещаем сжатие */
+}
+
+.card-icon i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    line-height: 1; /* Исправляет вертикальное выравнивание */
+}
+
+.card-content {
+    flex: 1;
+    min-width: 0; /* Предотвращает переполнение */
+}
+
+.card-content h4 {
+    color: white;
+    margin-bottom: 5px;
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-content p {
+    color: var(--secondary-light);
+    font-size: 0.9rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: rgba(212, 175, 55, 0.2);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    white-space: nowrap;
+}
+
+/* Исправления для гостевого режима */
+.guest-restricted {
+    opacity: 0.7;
+    cursor: not-allowed;
+    position: relative;
+    pointer-events: auto; /* Оставляем возможность видеть тултип */
+}
+
+.guest-restricted:hover::after {
+    content: "Требуется авторизация";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: var(--secondary);
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.guest-restricted .card-icon {
+    background: linear-gradient(45deg, #666, #444); /* Более тусклые цвета для заблокированных */
+}
+
+/* Сетка быстрого доступа */
+.quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 15px;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .quick-access-card {
+        padding: 15px;
+    }
+    
+    .card-icon {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        font-size: 1.2rem;
+    }
+    
+    .card-content h4 {
+        font-size: 1rem;
+    }
+    
+    .card-content p {
+        font-size: 0.8rem;
+    }
+    /* Дополнительные стили для форм и кнопок */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+}
+
+.btn-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(45deg, #20c997, #28a745);
+}
+
+.btn-secondary {
+    background: rgba(108, 117, 125, 0.2);
+    color: #adb5bd;
+    border: 1px solid #6c757d;
+}
+
+.btn-secondary:hover {
+    background: rgba(108, 117, 125, 0.4);
+}
+
+.alert-success {
+    background: rgba(40, 167, 69, 0.2);
+    border: 1px solid #28a745;
+    color: #98fb98;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+}
