@@ -1,5 +1,5 @@
 <?php
-// menu_items.php - ИСПРАВЛЕННАЯ ВЕРСИЯ, РАБОТАЕТ С БД
+// menu_items.php - ЛЮБАЯ ЦЕНА (без ограничений)
 require_once 'config.php';
 require_once 'header.php';
 
@@ -9,62 +9,77 @@ if (isGuest()) {
     exit;
 }
 
-// Обработка POST запроса (сохранение)
 $message = '';
 $error = '';
 
-// Обработка сохранения позиции меню
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_menu_item'])) {
-    $id = $_POST['id'] ?? '';
+// ========== ДОБАВЛЕНИЕ НОВОЙ ПОЗИЦИИ ==========
+if (isset($_POST['add_item'])) {
     $name = trim($_POST['name'] ?? '');
     $category = trim($_POST['category'] ?? '');
-    $description = trim($_POST['description'] ?? '');
     $price = (float)($_POST['price'] ?? 0);
-    $is_available = (int)($_POST['is_available'] ?? 1);
+    $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+    $is_available = isset($_POST['is_available']) ? 1 : 0;
     
-    if (empty($name) || empty($category) || $price <= 0) {
-        $error = 'Название, категория и цена обязательны для заполнения';
+    if (empty($name)) {
+        $error = 'Название позиции обязательно!';
+    } elseif (empty($category)) {
+        $error = 'Выберите категорию!';
+    } elseif ($price <= 0) {
+        $error = 'Цена должна быть больше 0!';
     } else {
         try {
-            if (empty($id)) {
-                // Добавление новой позиции
-                $stmt = $pdo->prepare("INSERT INTO menu_items (name, category, description, price, is_available, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-                $stmt->execute([$name, $category, $description, $price, $is_available]);
-                $message = 'Позиция успешно добавлена в меню!';
-            } else {
-                // Обновление существующей
-                $stmt = $pdo->prepare("UPDATE menu_items SET name=?, category=?, description=?, price=?, is_available=? WHERE id=?");
-                $stmt->execute([$name, $category, $description, $price, $is_available, $id]);
-                $message = 'Позиция меню обновлена!';
-            }
+            $stmt = $pdo->prepare("INSERT INTO menu_items (name, category, price, stock_quantity, is_available) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$name, $category, $price, $stock_quantity, $is_available]);
+            $message = "Позиция '{$name}' успешно добавлена!";
         } catch (PDOException $e) {
-            $error = 'Ошибка базы данных: ' . $e->getMessage();
+            $error = 'Ошибка БД: ' . $e->getMessage();
         }
     }
 }
 
-// Обработка удаления
+// ========== РЕДАКТИРОВАНИЕ ПОЗИЦИИ ==========
+if (isset($_POST['edit_item'])) {
+    $id = (int)$_POST['id'];
+    $name = trim($_POST['name'] ?? '');
+    $category = trim($_POST['category'] ?? '');
+    $price = (float)($_POST['price'] ?? 0);
+    $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+    $is_available = isset($_POST['is_available']) ? 1 : 0;
+    
+    if (empty($name)) {
+        $error = 'Название позиции обязательно!';
+    } elseif ($price <= 0) {
+        $error = 'Цена должна быть больше 0!';
+    } else {
+        try {
+            $stmt = $pdo->prepare("UPDATE menu_items SET name=?, category=?, price=?, stock_quantity=?, is_available=? WHERE id=?");
+            $stmt->execute([$name, $category, $price, $stock_quantity, $is_available, $id]);
+            $message = "Позиция '{$name}' успешно обновлена!";
+        } catch (PDOException $e) {
+            $error = 'Ошибка БД: ' . $e->getMessage();
+        }
+    }
+}
+
+// ========== УДАЛЕНИЕ ПОЗИЦИИ ==========
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        // Проверяем, есть ли позиция в заказах
         $check = $pdo->prepare("SELECT COUNT(*) FROM order_details WHERE menu_item_id = ?");
         $check->execute([$id]);
-        $orders_count = $check->fetchColumn();
-        
-        if ($orders_count > 0) {
-            $error = 'Нельзя удалить позицию, которая есть в заказах. Сначала удалите все заказы с этой позицией.';
+        if ($check->fetchColumn() > 0) {
+            $error = 'Нельзя удалить позицию, которая есть в заказах!';
         } else {
             $stmt = $pdo->prepare("DELETE FROM menu_items WHERE id = ?");
             $stmt->execute([$id]);
-            $message = 'Позиция удалена из меню';
+            $message = 'Позиция удалена';
         }
     } catch (PDOException $e) {
-        $error = 'Ошибка при удалении: ' . $e->getMessage();
+        $error = 'Ошибка удаления: ' . $e->getMessage();
     }
 }
 
-// Получаем данные для редактирования
+// ========== ПОЛУЧАЕМ ДАННЫЕ ДЛЯ РЕДАКТИРОВАНИЯ ==========
 $edit_item = null;
 if (isset($_GET['edit'])) {
     $id = (int)$_GET['edit'];
@@ -73,248 +88,176 @@ if (isset($_GET['edit'])) {
     $edit_item = $stmt->fetch();
 }
 
-// Получаем все позиции меню
+// ========== ПОЛУЧАЕМ ВСЕ ПОЗИЦИИ МЕНЮ ==========
 $menuItems = [];
-$categories = [];
 try {
     $stmt = $pdo->query("SELECT * FROM menu_items ORDER BY category, name");
     $menuItems = $stmt->fetchAll();
-    
-    $catStmt = $pdo->query("SELECT DISTINCT category FROM menu_items ORDER BY category");
-    $categories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (PDOException $e) {
-    $error = 'Ошибка загрузки данных: ' . $e->getMessage();
+    $error = 'Ошибка загрузки: ' . $e->getMessage();
 }
 
-// Массив для названий категорий на русском
-$categoryNames = [
-    'alcohol' => '🍷 Алкоголь',
+// Названия категорий
+$categories = [
+    'alcohol' => '🍷 Алкогольные напитки',
     'beer' => '🍺 Пиво',
     'wine' => '🍷 Вино',
     'spirits' => '🥃 Крепкий алкоголь',
     'cocktails' => '🍸 Коктейли',
-    'soft' => '🧃 Безалкогольные',
+    'soft' => '🥤 Безалкогольные',
     'juices' => '🧃 Соки',
     'water' => '💧 Вода',
-    'soda' => '🥤 Газировка',
-    'hot' => '☕ Горячие напитки',
     'coffee' => '☕ Кофе',
     'tea' => '🍵 Чай',
     'appetizers' => '🥗 Закуски',
     'hot_dishes' => '🍲 Горячие блюда',
     'desserts' => '🍰 Десерты',
-    'snacks' => '🍿 Снеки',
-    'salads' => '🥗 Салаты',
-    'soups' => '🍜 Супы',
-    'pasta' => '🍝 Паста',
     'pizza' => '🍕 Пицца',
-    'burgers' => '🍔 Бургеры',
-    'fish' => '🐟 Рыба',
-    'meat' => '🥩 Мясо',
-    'garnish' => '🍚 Гарниры',
-    'breakfast' => '🍳 Завтраки'
+    'burgers' => '🍔 Бургеры'
 ];
 ?>
 
 <div class="container">
-    <h1><i class="fas fa-utensils"></i> Меню ресторана и бара</h1>
+    <h1><i class="fas fa-utensils"></i> Управление меню</h1>
     
     <?php if ($message): ?>
-    <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i> <?php echo $message; ?>
-    </div>
+        <div class="alert alert-success" style="background: rgba(40,167,69,0.2); border:1px solid #28a745; padding:12px; border-radius:8px; margin-bottom:20px;">
+            ✅ <?php echo htmlspecialchars($message); ?>
+        </div>
     <?php endif; ?>
     
     <?php if ($error): ?>
-    <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
-    </div>
+        <div class="alert alert-error" style="background: rgba(220,53,69,0.2); border:1px solid #dc3545; padding:12px; border-radius:8px; margin-bottom:20px;">
+            ❌ <?php echo htmlspecialchars($error); ?>
+        </div>
     <?php endif; ?>
+    
+    <div style="margin-bottom: 20px;">
+        <a href="?add=1" class="btn btn-primary" style="background: linear-gradient(45deg, #D4AF37, #B8860B); padding: 10px 20px; border-radius: 8px; color: white; text-decoration: none;">
+            <i class="fas fa-plus"></i> Добавить позицию в меню
+        </a>
+    </div>
     
     <div class="card">
         <div class="card-header">
             <h3><i class="fas fa-list"></i> Все позиции меню (<?php echo count($menuItems); ?>)</h3>
-            <a href="?add" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Добавить позицию
-            </a>
         </div>
-        
         <div class="card-body">
-            <!-- Фильтры -->
-            <div class="filters">
-                <div class="filter-group">
-                    <label>Категория:</label>
-                    <select id="filterCategory" class="filter-select">
-                        <option value="">Все категории</option>
-                        <?php foreach ($categories as $cat): ?>
-                        <option value="<?php echo htmlspecialchars($cat); ?>">
-                            <?php echo $categoryNames[$cat] ?? ucfirst(str_replace('_', ' ', $cat)); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Доступность:</label>
-                    <select id="filterAvailability" class="filter-select">
-                        <option value="">Все</option>
-                        <option value="1">✅ Доступно</option>
-                        <option value="0">❌ Недоступно</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Поиск:</label>
-                    <input type="text" id="searchInput" class="filter-input" placeholder="Название...">
-                </div>
-            </div>
-            
-            <!-- Таблица меню -->
             <?php if (count($menuItems) > 0): ?>
-            <div class="table-responsive">
-                <table class="data-table" id="menuTable">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Название</th>
-                            <th>Категория</th>
-                            <th>Описание</th>
-                            <th>Цена</th>
-                            <th>Доступность</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($menuItems as $item): 
-                            $categoryDisplay = $categoryNames[$item['category']] ?? ucfirst(str_replace('_', ' ', $item['category']));
-                        ?>
-                        <tr data-category="<?php echo htmlspecialchars($item['category']); ?>" 
-                            data-available="<?php echo $item['is_available']; ?>"
-                            data-name="<?php echo htmlspecialchars(strtolower($item['name'])); ?>">
-                            <td><?php echo $item['id']; ?></td>
-                            <td><strong><?php echo htmlspecialchars($item['name']); ?></strong></td>
-                            <td>
-                                <span class="category-badge">
-                                    <?php echo $categoryDisplay; ?>
-                                </span>
-                            </td>
-                            <td class="description-cell">
-                                <?php echo htmlspecialchars($item['description'] ?? 'Нет описания'); ?>
-                            </td>
-                            <td class="amount-cell"><?php echo number_format($item['price'], 0); ?> ₽</td>
-                            <td>
-                                <span class="availability-badge <?php echo $item['is_available'] ? 'availability-yes' : 'availability-no'; ?>">
-                                    <?php echo $item['is_available'] ? '✅ Доступно' : '❌ Недоступно'; ?>
-                                </span>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="?edit=<?php echo $item['id']; ?>" class="btn-action btn-edit" title="Редактировать">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="?delete=<?php echo $item['id']; ?>" 
-                                       class="btn-action btn-delete" 
-                                       title="Удалить"
-                                       onclick="return confirm('Удалить позицию \'<?php echo addslashes($item['name']); ?>\'?')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+            <table class="data-table" style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #D4AF37;">
+                        <th style="padding: 12px; text-align: left;">ID</th>
+                        <th style="padding: 12px; text-align: left;">Название</th>
+                        <th style="padding: 12px; text-align: left;">Категория</th>
+                        <th style="padding: 12px; text-align: left;">Цена</th>
+                        <th style="padding: 12px; text-align: left;">Остаток</th>
+                        <th style="padding: 12px; text-align: left;">Доступно</th>
+                        <th style="padding: 12px; text-align: left;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($menuItems as $item): ?>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 12px;"><?php echo $item['id']; ?></td>
+                        <td style="padding: 12px;"><strong><?php echo htmlspecialchars($item['name']); ?></strong></td>
+                        <td style="padding: 12px;">
+                            <span style="background: rgba(212,175,55,0.2); padding: 4px 12px; border-radius: 20px;">
+                                <?php echo $categories[$item['category']] ?? $item['category']; ?>
+                            </span>
+                        </td>
+                        <td style="padding: 12px; color: #D4AF37; font-weight: bold;"><?php echo number_format($item['price'], 0); ?> ₽</td>
+                        <td style="padding: 12px;"><?php echo $item['stock_quantity'] ?? 0; ?> шт.</td>
+                        <td style="padding: 12px;">
+                            <?php if ($item['is_available']): ?>
+                                <span style="color: #28a745;">✅ Доступно</span>
+                            <?php else: ?>
+                                <span style="color: #dc3545;">❌ Недоступно</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="padding: 12px;">
+                            <a href="?edit=<?php echo $item['id']; ?>" style="color: #ffc107; margin-right: 10px; text-decoration: none;">✏️</a>
+                            <a href="?delete=<?php echo $item['id']; ?>" onclick="return confirm('Удалить?')" style="color: #dc3545; text-decoration: none;">🗑️</a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
             <?php else: ?>
-            <div class="no-data">
+            <div style="text-align: center; padding: 50px;">
                 <i class="fas fa-utensils" style="font-size: 4rem; opacity: 0.3;"></i>
-                <p>Меню пусто</p>
-                <a href="?add" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Добавить первую позицию
-                </a>
+                <p style="margin-top: 20px;">Меню пусто. Добавьте первую позицию!</p>
+                <a href="?add=1" class="btn btn-primary">➕ Добавить позицию</a>
             </div>
             <?php endif; ?>
         </div>
     </div>
     
-    <!-- Форма добавления/редактирования -->
+    <!-- ФОРМА ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ -->
     <?php if (isset($_GET['add']) || isset($_GET['edit'])): 
         $is_edit = isset($_GET['edit']);
         $item = $edit_item;
     ?>
-    <div class="card mt-4">
+    <div class="card" style="margin-top: 30px;">
         <div class="card-header">
-            <h3>
-                <i class="fas <?php echo $is_edit ? 'fa-edit' : 'fa-plus-circle'; ?>"></i>
+            <h3><i class="fas <?php echo $is_edit ? 'fa-edit' : 'fa-plus-circle'; ?>"></i> 
                 <?php echo $is_edit ? 'Редактирование позиции' : 'Добавление новой позиции'; ?>
             </h3>
         </div>
         <div class="card-body">
-            <form method="POST" action="menu_items.php" class="menu-form">
+            <form method="POST" action="menu_items.php" style="max-width: 500px;">
                 <?php if ($is_edit): ?>
-                <input type="hidden" name="id" value="<?php echo $item['id']; ?>">
+                    <input type="hidden" name="id" value="<?php echo $item['id']; ?>">
+                    <input type="hidden" name="edit_item" value="1">
+                <?php else: ?>
+                    <input type="hidden" name="add_item" value="1">
                 <?php endif; ?>
                 
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="itemName">Название:</label>
-                        <input type="text" 
-                               id="itemName" 
-                               name="name" 
-                               class="form-control" 
-                               value="<?php echo $is_edit ? htmlspecialchars($item['name']) : ''; ?>" 
-                               required>
-                    </div>
-                    
-                    <div class="form-group col-md-6">
-                        <label for="itemCategory">Категория:</label>
-                        <select id="itemCategory" name="category" class="form-control" required>
-                            <option value="">Выберите категорию</option>
-                            <?php foreach ($categoryNames as $catKey => $catName): ?>
-                            <option value="<?php echo $catKey; ?>" 
-                                <?php echo ($is_edit && $item['category'] == $catKey) ? 'selected' : ''; ?>>
-                                <?php echo $catName; ?>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: #D4AF37; margin-bottom: 8px;">Название *</label>
+                    <input type="text" name="name" required 
+                           value="<?php echo $is_edit ? htmlspecialchars($item['name']) : ''; ?>"
+                           style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid #D4AF37; border-radius: 8px; color: white;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: #D4AF37; margin-bottom: 8px;">Категория *</label>
+                    <select name="category" required style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid #D4AF37; border-radius: 8px; color: white;">
+                        <option value="">-- Выберите категорию --</option>
+                        <?php foreach ($categories as $key => $name): ?>
+                            <option value="<?php echo $key; ?>" <?php echo ($is_edit && $item['category'] == $key) ? 'selected' : ''; ?>>
+                                <?php echo $name; ?>
                             </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 
-                <div class="form-group">
-                    <label for="itemDescription">Описание:</label>
-                    <textarea id="itemDescription" 
-                              name="description" 
-                              class="form-control" 
-                              rows="3"><?php echo $is_edit ? htmlspecialchars($item['description']) : ''; ?></textarea>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: #D4AF37; margin-bottom: 8px;">Цена (₽) *</label>
+                    <input type="number" name="price" required min="1" step="1" 
+                           value="<?php echo $is_edit ? $item['price'] : '100'; ?>"
+                           style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid #D4AF37; border-radius: 8px; color: white;">
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="itemPrice">Цена (₽):</label>
-                        <input type="number" 
-                               id="itemPrice" 
-                               name="price" 
-                               class="form-control" 
-                               min="1" 
-                               step="10" 
-                               value="<?php echo $is_edit ? $item['price'] : '100'; ?>" 
-                               required>
-                    </div>
-                    
-                    <div class="form-group col-md-6">
-                        <label for="itemAvailability">Доступность:</label>
-                        <select id="itemAvailability" name="is_available" class="form-control">
-                            <option value="1" <?php echo (!$is_edit || $item['is_available']) ? 'selected' : ''; ?>>✅ Доступно</option>
-                            <option value="0" <?php echo ($is_edit && !$item['is_available']) ? 'selected' : ''; ?>>❌ Недоступно</option>
-                        </select>
-                    </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: #D4AF37; margin-bottom: 8px;">Количество на складе</label>
+                    <input type="number" name="stock_quantity" min="0" step="1"
+                           value="<?php echo $is_edit ? ($item['stock_quantity'] ?? 0) : '0'; ?>"
+                           style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid #D4AF37; border-radius: 8px; color: white;">
                 </div>
                 
-                <div class="form-actions">
-                    <button type="submit" name="save_menu_item" class="btn btn-success">
-                        <i class="fas fa-save"></i> <?php echo $is_edit ? 'Сохранить изменения' : 'Добавить позицию'; ?>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: #D4AF37; margin-bottom: 8px;">
+                        <input type="checkbox" name="is_available" value="1" <?php echo (!$is_edit || $item['is_available']) ? 'checked' : ''; ?> style="margin-right: 8px;">
+                        Доступно для заказа
+                    </label>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <button type="submit" class="btn btn-success" style="background: linear-gradient(45deg, #28a745, #20c997); padding: 12px 24px; border: none; border-radius: 8px; color: white; cursor: pointer;">
+                        <i class="fas fa-save"></i> <?php echo $is_edit ? 'Сохранить' : 'Добавить'; ?>
                     </button>
-                    <a href="menu_items.php" class="btn btn-secondary">
+                    <a href="menu_items.php" class="btn btn-secondary" style="background: rgba(108,117,125,0.3); padding: 12px 24px; border-radius: 8px; color: white; text-decoration: none;">
                         <i class="fas fa-times"></i> Отмена
                     </a>
                 </div>
@@ -323,107 +266,5 @@ $categoryNames = [
     </div>
     <?php endif; ?>
 </div>
-
-<style>
-.filters {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 30px;
-    padding: 20px;
-    background: rgba(26, 26, 26, 0.6);
-    border-radius: 10px;
-    flex-wrap: wrap;
-}
-
-.filter-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1 1 200px;
-}
-
-.filter-group label {
-    color: var(--accent);
-    white-space: nowrap;
-}
-
-.filter-select, .filter-input {
-    width: 100%;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(212, 175, 55, 0.3);
-    border-radius: 5px;
-    color: white;
-}
-
-.category-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    background: rgba(212, 175, 55, 0.2);
-    color: var(--accent);
-    border-radius: 20px;
-    font-size: 0.85rem;
-}
-
-.availability-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-}
-
-.availability-yes {
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
-}
-
-.availability-no {
-    background: rgba(244, 67, 54, 0.2);
-    color: #f44336;
-}
-
-.description-cell {
-    max-width: 300px;
-    color: var(--secondary-light);
-    font-size: 0.9rem;
-}
-
-.mt-4 {
-    margin-top: 30px;
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const filterCategory = document.getElementById('filterCategory');
-    const filterAvailability = document.getElementById('filterAvailability');
-    const searchInput = document.getElementById('searchInput');
-    const tableRows = document.querySelectorAll('#menuTable tbody tr');
-    
-    function applyFilters() {
-        const categoryValue = filterCategory ? filterCategory.value : '';
-        const availabilityValue = filterAvailability ? filterAvailability.value : '';
-        const searchValue = searchInput ? searchInput.value.toLowerCase() : '';
-        
-        tableRows.forEach(row => {
-            const rowCategory = row.getAttribute('data-category');
-            const rowAvailability = row.getAttribute('data-available');
-            const rowName = row.getAttribute('data-name') || '';
-            
-            let showRow = true;
-            
-            if (categoryValue && rowCategory !== categoryValue) showRow = false;
-            if (availabilityValue && rowAvailability !== availabilityValue) showRow = false;
-            if (searchValue && !rowName.includes(searchValue)) showRow = false;
-            
-            row.style.display = showRow ? '' : 'none';
-        });
-    }
-    
-    if (filterCategory) filterCategory.addEventListener('change', applyFilters);
-    if (filterAvailability) filterAvailability.addEventListener('change', applyFilters);
-    if (searchInput) searchInput.addEventListener('keyup', applyFilters);
-});
-</script>
 
 <?php require_once 'footer.php'; ?>

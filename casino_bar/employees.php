@@ -1,5 +1,5 @@
 <?php
-// employees.php - УЖЕ БЫЛ ПРАВИЛЬНЫЙ
+// employees.php - БЕЗ ТЕЛЕФОНА И ДАТЫ НАЙМА
 require_once 'config.php';
 require_once 'header.php';
 
@@ -19,22 +19,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_employee'])) {
     $first_name = trim($_POST['first_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $position = trim($_POST['position'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $hire_date = $_POST['hire_date'] ?? date('Y-m-d');
     
-    if (empty($first_name) || empty($last_name) || empty($position) || empty($phone)) {
-        $error = 'Все поля обязательны для заполнения';
+    if (empty($first_name) || empty($last_name) || empty($position)) {
+        $error = 'Имя, фамилия и должность обязательны для заполнения';
     } else {
         try {
             if (empty($id)) {
-                // Добавление нового сотрудника
-                $stmt = $pdo->prepare("INSERT INTO employees (first_name, last_name, position, phone, hire_date) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$first_name, $last_name, $position, $phone, $hire_date]);
+                $stmt = $pdo->prepare("INSERT INTO employees (first_name, last_name, position) VALUES (?, ?, ?)");
+                $stmt->execute([$first_name, $last_name, $position]);
                 $message = 'Сотрудник успешно добавлен!';
             } else {
-                // Обновление существующего
-                $stmt = $pdo->prepare("UPDATE employees SET first_name=?, last_name=?, position=?, phone=?, hire_date=? WHERE id=?");
-                $stmt->execute([$first_name, $last_name, $position, $phone, $hire_date, $id]);
+                $stmt = $pdo->prepare("UPDATE employees SET first_name=?, last_name=?, position=? WHERE id=?");
+                $stmt->execute([$first_name, $last_name, $position, $id]);
                 $message = 'Данные сотрудника обновлены!';
             }
         } catch (PDOException $e) {
@@ -47,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_employee'])) {
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        // Проверяем, есть ли у сотрудника смены
         $check = $pdo->prepare("SELECT COUNT(*) FROM shifts WHERE employee_id = ?");
         $check->execute([$id]);
         $shifts_count = $check->fetchColumn();
@@ -73,17 +68,14 @@ if (isset($_GET['edit'])) {
     $edit_employee = $stmt->fetch();
 }
 
-// Получаем список сотрудников
+// Получаем список сотрудников - выбираем только нужные колонки
 $employees = [];
 try {
-    $stmt = $pdo->query("SELECT * FROM employees ORDER BY id DESC");
+    $stmt = $pdo->query("SELECT id, first_name, last_name, position FROM employees ORDER BY id DESC");
     $employees = $stmt->fetchAll();
 } catch (PDOException $e) {
     $error = 'Ошибка загрузки данных: ' . $e->getMessage();
 }
-?>
-
-<!-- ... остальной код employees.php без изменений ... -->
 ?>
 
 <div class="container">
@@ -91,19 +83,19 @@ try {
     
     <?php if ($message): ?>
     <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i> <?php echo $message; ?>
+        <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($message); ?>
     </div>
     <?php endif; ?>
     
     <?php if ($error): ?>
     <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
+        <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?>
     </div>
     <?php endif; ?>
     
     <div class="card">
         <div class="card-header">
-            <h3><i class="fas fa-list"></i> Список сотрудников</h3>
+            <h3><i class="fas fa-list"></i> Список сотрудников (<?php echo count($employees); ?>)</h3>
             <a href="?add" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Добавить сотрудника
             </a>
@@ -119,26 +111,20 @@ try {
                             <th>Имя</th>
                             <th>Фамилия</th>
                             <th>Должность</th>
-                            <th>Телефон</th>
-                            <th>Дата найма</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($employees as $row): ?>
                         <tr>
-                            <td><?php echo escape($row['id']); ?></td>
-                            <td><strong><?php echo escape($row['first_name']); ?></strong></td>
-                            <td><?php echo escape($row['last_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['id']); ?></td>
+                            <td><strong><?php echo htmlspecialchars($row['first_name']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($row['last_name']); ?></td>
                             <td>
                                 <span class="position-badge">
-                                    <?php echo escape($row['position']); ?>
+                                    <?php echo htmlspecialchars($row['position']); ?>
                                 </span>
                             </td>
-                            <td>
-                                <i class="fas fa-phone"></i> <?php echo escape($row['phone']); ?>
-                            </td>
-                            <td><?php echo date('d.m.Y', strtotime($row['hire_date'])); ?></td>
                             <td>
                                 <div class="action-buttons">
                                     <a href="?edit=<?php echo $row['id']; ?>" class="btn-action btn-edit" title="Редактировать">
@@ -169,7 +155,7 @@ try {
         </div>
     </div>
     
-    <!-- Форма добавления/редактирования -->
+    <!-- Форма добавления/редактирования (без телефона и даты) -->
     <?php if (isset($_GET['add']) || isset($_GET['edit'])): 
         $is_edit = isset($_GET['edit']);
         $employee = $edit_employee;
@@ -184,7 +170,7 @@ try {
         <div class="card-body">
             <form method="POST" action="employees.php" class="employee-form">
                 <?php if ($is_edit): ?>
-                <input type="hidden" name="id" value="<?php echo $employee['id']; ?>">
+                <input type="hidden" name="id" value="<?php echo htmlspecialchars($employee['id']); ?>">
                 <?php endif; ?>
                 
                 <div class="form-row">
@@ -194,7 +180,7 @@ try {
                                id="first_name" 
                                name="first_name" 
                                class="form-control" 
-                               value="<?php echo $is_edit ? escape($employee['first_name']) : ''; ?>" 
+                               value="<?php echo $is_edit ? htmlspecialchars($employee['first_name']) : ''; ?>" 
                                required>
                     </div>
                     
@@ -204,44 +190,22 @@ try {
                                id="last_name" 
                                name="last_name" 
                                class="form-control" 
-                               value="<?php echo $is_edit ? escape($employee['last_name']) : ''; ?>" 
-                               required>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="position">Должность:</label>
-                        <select id="position" name="position" class="form-control" required>
-                            <option value="">Выберите должность</option>
-                            <option value="Администратор" <?php echo ($is_edit && $employee['position'] == 'Администратор') ? 'selected' : ''; ?>>Администратор</option>
-                            <option value="Бармен" <?php echo ($is_edit && $employee['position'] == 'Бармен') ? 'selected' : ''; ?>>Бармен</option>
-                            <option value="Крупье" <?php echo ($is_edit && $employee['position'] == 'Крупье') ? 'selected' : ''; ?>>Крупье</option>
-                            <option value="Официант" <?php echo ($is_edit && $employee['position'] == 'Официант') ? 'selected' : ''; ?>>Официант</option>
-                            <option value="Охрана" <?php echo ($is_edit && $employee['position'] == 'Охрана') ? 'selected' : ''; ?>>Охрана</option>
-                            <option value="Менеджер" <?php echo ($is_edit && $employee['position'] == 'Менеджер') ? 'selected' : ''; ?>>Менеджер</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group col-md-6">
-                        <label for="phone">Телефон:</label>
-                        <input type="text" 
-                               id="phone" 
-                               name="phone" 
-                               class="form-control" 
-                               value="<?php echo $is_edit ? escape($employee['phone']) : ''; ?>" 
+                               value="<?php echo $is_edit ? htmlspecialchars($employee['last_name']) : ''; ?>" 
                                required>
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="hire_date">Дата найма:</label>
-                    <input type="date" 
-                           id="hire_date" 
-                           name="hire_date" 
-                           class="form-control" 
-                           value="<?php echo $is_edit ? $employee['hire_date'] : date('Y-m-d'); ?>" 
-                           required>
+                    <label for="position">Должность:</label>
+                    <select id="position" name="position" class="form-control" required>
+                        <option value="">Выберите должность</option>
+                        <option value="Администратор" <?php echo ($is_edit && $employee['position'] == 'Администратор') ? 'selected' : ''; ?>>Администратор</option>
+                        <option value="Бармен" <?php echo ($is_edit && $employee['position'] == 'Бармен') ? 'selected' : ''; ?>>Бармен</option>
+                        <option value="Крупье" <?php echo ($is_edit && $employee['position'] == 'Крупье') ? 'selected' : ''; ?>>Крупье</option>
+                        <option value="Официант" <?php echo ($is_edit && $employee['position'] == 'Официант') ? 'selected' : ''; ?>>Официант</option>
+                        <option value="Охрана" <?php echo ($is_edit && $employee['position'] == 'Охрана') ? 'selected' : ''; ?>>Охрана</option>
+                        <option value="Менеджер" <?php echo ($is_edit && $employee['position'] == 'Менеджер') ? 'selected' : ''; ?>>Менеджер</option>
+                    </select>
                 </div>
                 
                 <div class="form-actions">
@@ -295,6 +259,27 @@ try {
 
 .mt-4 {
     margin-top: 30px;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.data-table th {
+    color: var(--accent);
+    font-weight: 600;
 }
 </style>
 

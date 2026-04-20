@@ -1,5 +1,5 @@
 <?php
-// header.php - БЕЗ VIP
+// header.php - БЕЗ РАЗВЛЕЧЕНИЙ
 if (!function_exists('isGuest')) {
     require_once 'config.php';
 }
